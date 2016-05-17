@@ -1,10 +1,12 @@
 from bs4 import BeautifulSoup
 import urllib2
+import urllib
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pickle
+import urlparse
 
 """
 
@@ -128,7 +130,18 @@ class BudaRating(object):
                 continue
 
             # scrape the scores for this league
-            leaguescoreurl = 'http://www.buda.org/hatleagues/scores.php?section=showLeagueSchedule&league=' + leagueid + '&byDivision=1&showGames=0'
+            scheme = 'http'
+            netloc = 'www.buda.org'
+            path = '/hatleagues/scores.php'
+            params = ''
+            querydict = {'section': 'showLeagueSchedule',
+                         'league': '{}'.format(leagueid),
+                         'byDivision': '1',
+                         'showGames': '0'}
+            query = urllib.urlencode(querydict)
+            fragment = ''
+            parts = (scheme, netloc, path, params, query, fragment)
+            leaguescoreurl = urlparse.urlunparse(parts)
             response = urllib2.urlopen(leaguescoreurl)
             leaguescore_soup = BeautifulSoup(response)
 
@@ -244,12 +257,18 @@ class BudaRating(object):
                 else:
                     team_rating[teamid] = adhocrating
 
-                teamurl = 'http://www.buda.org/hatleagues/rosters.php?section=showTeamRoster&team=' + teamid
+                path = '/hatleagues/rosters.php'
+                querydict = {'section': 'showTeamRoster',
+                             'team': '{}'.format(teamid)}
+                query = urllib.urlencode(querydict)
+                parts = (scheme, netloc, path, params, query, fragment)
+                teamurl = urlparse.urlunparse(parts)
                 response = urllib2.urlopen(teamurl)
                 roster_soup = BeautifulSoup(response)
 
                 # list of players on this team
-                players = [td.get_text() for td in roster_soup.find_all("td", class_="infobody")]
+                players = [td.get_text() for td in
+                           roster_soup.find_all("td", class_="infobody")]
 
                 # store the players for this team in a dictionary
                 team_players[teamid] = players
@@ -274,6 +293,8 @@ class BudaRating(object):
         pickle.dump(self.team_players, f)
         f = open(prefix + '_team_rating.p', 'wb')
         pickle.dump(self.team_rating, f)
+        f = open(prefix + '_league_teams.p', 'wb')
+        pickle.dump(self.league_teams, f)
 
     def load_buda(self, prefix):
         f = open(prefix + '_player_teams.p', 'r')
@@ -282,6 +303,8 @@ class BudaRating(object):
         pickle.load(self.team_players, f)
         f = open(prefix + '_team_rating.p', 'r')
         pickle.load(self.team_rating, f)
+        f = open(prefix + '_league_teams.p', 'r')
+        pickle.load(self.league_teams, f)
 
     def predict_team(self, team_id):
 
@@ -307,32 +330,47 @@ class BudaRating(object):
             previous_teams_index = teams < float(team_id)
             previous_teams = teams[previous_teams_index]
 
-            # if someone hasn't played club, they probably aren't very good
-            # TODO: use hat league data somehow
+            # if someone has no records in the database, they probably aren't
+            # very good
+            # TODO: use a google search for this player somehow
             if len(previous_teams) == 0:
                 team_ratings[player] = 800
             else:
                 previous_ratings = [self.team_rating[team_key] for team_key in
                                     previous_teams]
 
+                # if there was no div rating set, then the rating will be
+                # centered on zero and should not be used in previous_ratings
+                previous_ratings = np.array(previous_ratings)
+                thresh = 400
+                okratings = previous_ratings > thresh
+
                 # might want to refactor this line, since there are many
                 # possible ways to generate a single rating for a given player
-                team_ratings[player] = np.mean(previous_ratings)
+                if previous_ratings[okratings].size > 0:
+                    team_ratings[player] = np.mean(previous_ratings[okratings])
+                else:
+                    # this player doesn't have any club experience on record,
+                    # so default their rating to 800
+                    # TODO: define div ratings for hat leagues
+                    team_ratings[player] = 800
 
         return team_ratings
 
-    def predict_league(self, league_id):
+    def predict_div(self, league_id, divname):
 
         # instantiate dictionary to store ratings for teams in this league
-        league_ratings = {}
+        div_ratings = {}
 
-        # get the list of teams in this league
+        self.league_meta.ix[league_id, 'divnames']
+
+        # get the list of teams in this league / division
         team_ids = self.league_teams[league_id]
         for team_id in team_ids:
             team_ratings = self.predict_team(team_id)
-            league_ratings[team_id] = np.mean(team_ratings)
+            div_ratings[team_id] = np.mean(team_ratings)
 
-        return league_ratings
+        return div_ratings
 
 
 
