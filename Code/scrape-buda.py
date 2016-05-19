@@ -30,6 +30,11 @@ and a hat rating for each player.
 The club/hat rating will be the average of the club/hat ratings associated with
 team ids smaller than the team id of the given team.
 
+I want a dataframe that has team id as the index, and the following columns:
+team name, year, season, league type, division name, base division rating, score
+differential rating, observed score differential, predicted historical
+experience rating
+
 """
 
 class BudaRating(object):
@@ -56,13 +61,13 @@ class BudaRating(object):
         # extract each league id
         leagueids = [link[link.index('league=') + 7:] for link in leaguelinks]
 
-        for league_name in leaguenames:
-            league_name_list = league_name.split(' ')
-            league_season = league_name_list[0]
-            league_type = league_name_list[1]
-            league_year = league_name_list[-1]
-            if league_season == 'Winter':
-                league_type = 'Hat'
+        # for league_name in leaguenames:
+        #     league_name_list = league_name.split(' ')
+        #     league_season = league_name_list[0]
+        #     league_type = league_name_list[1]
+        #     league_year = league_name_list[-1]
+        #     if league_season == 'Winter':
+        #         league_type = 'Hat'
 
         leaguedict = pd.DataFrame({'id': leagueids, 'name': leaguenames})
 
@@ -118,11 +123,21 @@ class BudaRating(object):
         # dictionary specifying the rating that each team is associated with
         team_rating = {}
 
+        # plan is to build a dataframe with all teams in the BUDA database
+        allteamids = []
+        allseasons = []
+        alltypes = []
+        allyears = []
+        alldivs = []
+        allratings = []
+
         # loop over all the leagues in league_meta
         for leagueid in self.league_meta.index:
 
             league_season = self.league_meta.ix[leagueid, 'season']
             league_type = self.league_meta.ix[leagueid, 'type']
+            if league_season == 'Winter':
+                league_type = 'Hat'
             league_meta = [league_season, league_type].join(' ')
 
             # only analyze leagues where league_type is Hat or Club

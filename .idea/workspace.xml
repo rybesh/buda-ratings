@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="bf1b533b-0e59-47ed-985b-2561d954b413" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Code/Validation.ipynb" afterPath="$PROJECT_DIR$/Code/Validation.ipynb" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Code/scrape-buda.py" afterPath="$PROJECT_DIR$/Code/scrape-buda.py" />
     </list>
     <ignored path="buda-rank.iws" />
@@ -27,8 +28,8 @@
       <file leaf-file-name="scrape-buda.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Code/scrape-buda.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="570">
-              <caret line="354" column="61" selection-start-line="354" selection-start-column="61" selection-end-line="354" selection-end-column="61" />
+            <state relative-caret-position="120">
+              <caret line="131" column="22" selection-start-line="131" selection-start-column="22" selection-end-line="131" selection-end-column="22" />
               <folding>
                 <element signature="e#0#29#0" expanded="true" />
               </folding>
@@ -297,8 +298,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/Code/scrape-buda.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="570">
-          <caret line="354" column="61" selection-start-line="354" selection-start-column="61" selection-end-line="354" selection-end-column="61" />
+        <state relative-caret-position="120">
+          <caret line="131" column="22" selection-start-line="131" selection-start-column="22" selection-end-line="131" selection-end-column="22" />
           <folding>
             <element signature="e#0#29#0" expanded="true" />
           </folding>
