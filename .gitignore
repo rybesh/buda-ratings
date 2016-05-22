@@ -63,3 +63,6 @@ target/
 
 # VIM
 *.sw?
+
+# PyCharm
+.idea
