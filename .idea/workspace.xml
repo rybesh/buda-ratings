@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="bf1b533b-0e59-47ed-985b-2561d954b413" name="Default" comment="" />
+    <list default="true" id="bf1b533b-0e59-47ed-985b-2561d954b413" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Code/Explore BUDA.ipynb" afterPath="$PROJECT_DIR$/Code/Explore BUDA.ipynb" />
+    </list>
     <ignored path="buda-rank.iws" />
     <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />

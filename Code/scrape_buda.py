@@ -439,3 +439,80 @@ class BudaRating(object):
 
         self.allteams['predicted_rating'] = prating
 
+    def team_detail(self, team_id):
+
+        """
+
+        :param team_id: id of the team for which to generate detailed report
+        :return: dataframe with useful info for players on team_id
+
+        """
+
+        # instantiate the detail info lists
+        nclubseasons = []
+        nhatseasons = []
+        avgclubrating = []
+        avghatrating = []
+
+        # get the list of players for this team
+        players = self.team_players[team_id]
+
+        # for each player, get their rating based on previous performance
+        for player in players:
+            teams = self.player_teams[player]
+            teams = np.array(teams).astype('int')
+
+            # list of previous teams for this player
+            previous_teams_index = teams < float(team_id)
+            previous_teams = teams[previous_teams_index]
+
+            # if someone has no records in the database, they probably aren't
+            # very good
+            # TODO: use a google search for this player somehow
+            if len(previous_teams) == 0:
+                avgclubrating.append(800)
+                avghatrating.append(0)
+                nclubseasons.append(0)
+                nhatseasons.append(0)
+            else:
+                previous_ratings = [self.team_rating[str(team_key)] for
+                                    team_key in previous_teams]
+
+                # if there was no div rating set, then the rating will be
+                # centered on zero and should not be used in previous_ratings
+                previous_ratings = np.array(previous_ratings)
+                thresh = 500
+                okratings = previous_ratings > thresh
+
+                # club seasons have ratings above the threshold
+                nclubseasons.append(previous_ratings[okratings].size)
+
+                # hat seasons have ratings below the threshold
+                nhatseasons.append(previous_ratings[~okratings].size)
+
+                # might want to refactor this line, since there are many
+                # possible ways to generate a single rating for a given player
+                if previous_ratings[okratings].size > 0:
+                    avgclubrating.append(np.mean(previous_ratings[okratings]))
+                else:
+                    # this player doesn't have any club experience on record,
+                    # so default their rating to 800
+                    # TODO: define div ratings for hat leagues
+                    avgclubrating.append(800)
+                if previous_ratings[~okratings].size > 0:
+                    avghatrating.append(np.mean(previous_ratings[~okratings]))
+                else:
+                    # this player doesn't have any club experience on record,
+                    # so default their rating to 800
+                    # TODO: define div ratings for hat leagues
+                    avghatrating.append(0)
+
+        result = pd.DataFrame({'player': players,
+                               'club_rating': avgclubrating,
+                               'hat_rating': avghatrating,
+                               'nclub': nclubseasons,
+                               'nhat': nhatseasons})
+
+        return result
+
+
