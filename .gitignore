@@ -1,7 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
 
 # C extensions
 *.so
@@ -43,7 +42,6 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *,cover
-.hypothesis/
 
 # Translations
 *.mo
@@ -58,11 +56,19 @@ docs/_build/
 # PyBuilder
 target/
 
-#Ipython Notebook
-.ipynb_checkpoints
+# DotEnv configuration
+.env
 
-# VIM
-*.sw?
+# Database
+*.db
+*.rdb
 
-# PyCharm
+# Pycharm
 .idea
+
+# IPython NB Checkpoints
+.ipynb_checkpoints/
+
+# exclude data from source control by default
+/data/
+
