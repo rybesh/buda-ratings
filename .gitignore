@@ -64,7 +64,7 @@ target/
 *.rdb
 
 # Pycharm
-.idea
+.idea/
 
 # IPython NB Checkpoints
 .ipynb_checkpoints/
