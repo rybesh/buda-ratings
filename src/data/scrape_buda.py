@@ -40,118 +40,100 @@ experience rating
 class BudaRating(object):
 
     def __init__(self):
-        self.scrape_leagues()
-        self.define_ratings()
+        self.league_meta = scrape_leagues()
+        self.div_ratings = define_ratings()
 
-    def scrape_leagues(self):
+    def scrape_buda(self, prefix=None):
 
-        r = urllib2.urlopen('http://www.buda.org/leagues/past-leagues')
-        soup = BeautifulSoup(r, 'html.parser')
+        # set prefix to the location of existing scraped data so that only
+        # new data needs to be scraped
+        if prefix is not None:
+            self.load_buda(prefix)
+            league_teams = self.league_teams
+            player_teams = self.player_teams
+            team_players = self.team_players
+            team_rating = self.team_rating
+            #
+            # # remove summer club 2016 data
+            # import pdb; pdb.set_trace()
+            # league_teams.pop('40264')
+            # player_teams.pop('40264')
+            # team_players.pop('40264')
+            # team_rating.pop('40264')
 
-        iframe = soup.find_all('iframe')[0]
-        response = urllib2.urlopen(iframe.attrs['src'])
-        iframe_soup = BeautifulSoup(response)
+            indx = (self.allteams['season'] == 'Summer') & \
+                   (self.allteams['type'] == 'Club') & \
+                   (self.allteams['year'] == 2016)
+            self.allteams = self.allteams[~indx]
+            allteamids = list(self.allteams['teamid'].values)
+            allteamnames = list(self.allteams['teamname'].values)
+            allseasons = list(self.allteams['season'].values)
+            alltypes = list(self.allteams['type'].values)
+            allyears = list(self.allteams['year'].values)
+            alldivnames = list(self.allteams['divname'].values)
+            alldivratings = list(self.allteams['divrating'].values)
+            allplusminus = list(self.allteams['plusminus'].values)
+        else:
 
-        # scrape the html link to each league
-        leaguelinks = [i.a['href'] for i in iframe_soup.find_all("td", class_="infobody")]
+            # dictionary specifying the teams that each league is associated with
+            league_teams = {}
 
-        # scrape each league name
-        leaguenames = [i.get_text() for i in iframe_soup.find_all("td",
-                                                             class_="infobody")]
+            # dictionary specifying the teams that each player is associated with
+            player_teams = {}
 
-        # extract each league id
-        leagueids = [link[link.index('league=') + 7:] for link in leaguelinks]
+            # dictionary specifying the players that each team is associated with
+            team_players = {}
 
-        # for league_name in leaguenames:
-        #     league_name_list = league_name.split(' ')
-        #     league_season = league_name_list[0]
-        #     league_type = league_name_list[1]
-        #     league_year = league_name_list[-1]
-        #     if league_season == 'Winter':
-        #         league_type = 'Hat'
+            # dictionary specifying the rating that each team is associated with
+            team_rating = {}
 
-        leaguedict = pd.DataFrame({'id': leagueids, 'name': leaguenames})
+            # plan is to build a dataframe with a row for all teams in the BUDA
+            # database.  columns will be teamid, season, league type, year,
+            # division name, average plus/minus per game.  other methods will
+            # use these columns to produce new columns.  the main ones i'm
+            # thinking about now are: observed rating, predicted rating.
+            # observed rating is a base rating associated with division name
+            # plus a modifier that is related to average plus/minus per game.
+            # predicted rating is based on the player ratings for all members of
+            # the team.  to estimate base rating for hat league divisions, i'll
+            # need to inspect the predicted ratings for every team.  then i can
+            # groupby division name and look at mean and standard deviations for
+            # each division.  maybe break it down by year and see if there are
+            # trends with time.
+            allteamids = []
+            allteamnames = []
+            allseasons = []
+            alltypes = []
+            allyears = []
+            alldivnames = []
+            alldivratings = []
+            allplusminus = []
 
-        func = lambda x: x.split(' ')[0]
-        leaguedict['season'] = leaguedict['name'].apply(func)
-        func = lambda x: x.split(' ')[1]
-        leaguedict['type'] = leaguedict['name'].apply(func)
-        func = lambda x: x.split(' ')[-1]
-        leaguedict['year'] = leaguedict['name'].apply(func)
+        # test for how many leagues we'll need to scrape
+        alreadyscraped = 0
+        totalleagues = len(self.league_meta.index)
+        for leagueid in self.league_meta.index:
+            if leagueid in league_teams:
+                alreadyscraped += 1
 
-        leaguedict = leaguedict.set_index('id')
-
-        self.league_meta = leaguedict
-
-    def define_ratings(self):
-
-        # define base ratings by division (arbitrarily assigned based on my
-        # experience)
-        div_ratings = {'Summer Club': {'4/3 Div 1': 1800,
-                                       '4/3 Div 2': 1400,
-                                       '4/3 Div 3': 1000,
-                                       '4/3 Div 4': 900,
-                                       '5/2 Div 1': 1700,
-                                       '5/2 Div 2': 1300,
-                                       '5/2 Div 3': 900,
-                                       '5/2 Div 4': 800,
-                                       'Open Div 1': 1400,
-                                       'Open Div 2': 1200},
-                       'Fall Club': {'4/3 Div 1': 1700,
-                                     '4/3 Div 2': 1300,
-                                     '4/3 Div 3': 900,
-                                     '4/3 Div 4': 800,
-                                     '5/2 Div 1': 1700,
-                                     '5/2 Div 2': 1200,
-                                     '5/2 Div 3': 800,
-                                     '5/2 Div 4': 700,
-                                     'Open Div 1': 1300,
-                                     'Open Div 2': 1100}}
-
-        self.div_ratings = div_ratings
-
-    def scrape_buda(self):
-
-        # dictionary specifying the teams that each league is associated with
-        league_teams = {}
-
-        # dictionary specifying the teams that each player is associated with
-        player_teams = {}
-
-        # dictionary specifying the players that each team is associated with
-        team_players = {}
-
-        # dictionary specifying the rating that each team is associated with
-        team_rating = {}
-
-        # plan is to build a dataframe with a row for all teams in the BUDA
-        # database.  columns will be teamid, season, league type, year,
-        # division name, average plus/minus per game.  other methods will use
-        # these columns to produce new columns.  the main ones i'm thinking
-        # about now are: observed rating, predicted rating.  observed rating
-        # is a base rating associated with division name plus a modifier that
-        # is related to average plus/minus per game.  predicted rating is
-        # based on the player ratings for all members of the team.  to
-        # estimate base rating for hat league divisions, i'll need to inspect
-        #  the predicted ratings for every team.  then i can groupby division
-        #  name and look at mean and standard deviations for each
-        # division.  maybe break it down by year and see if there are trends
-        # with time.
-        allteamids = []
-        allteamnames = []
-        allseasons = []
-        alltypes = []
-        allyears = []
-        alldivnames = []
-        alldivratings = []
-        allplusminus = []
+        tobescraped = totalleagues - alreadyscraped
+        print("Planning to scrape {} leagues out of a total of {} leagues in "
+              "the BUDA database.".format(tobescraped, totalleagues))
+        # import pdb; pdb.set_trace()
 
         # loop over all the leagues in league_meta
         for leagueid in self.league_meta.index:
 
+            # skip this league if it's already been scraped
+            if (leagueid in league_teams) & (leagueid != '40264'):
+                print("Found that league {} has already been scraped, "
+                      "skipping".format(leagueid))
+                continue
+
             league_season = self.league_meta.ix[leagueid, 'season']
             league_type = self.league_meta.ix[leagueid, 'type']
             league_year = self.league_meta.ix[leagueid, 'year']
+            league_name = self.league_meta.ix[leagueid, 'name']
             if league_season == 'Winter':
                 league_type = 'Hat'
             league_meta = " ".join([league_season, league_type])
@@ -160,7 +142,7 @@ class BudaRating(object):
             if league_type != 'Hat':
                 if league_type != 'Club':
                     print("{} is not Hat or Club, skipping {}".format(
-                        league_type, leagueid))
+                        league_name, leagueid))
                     continue
 
             # scrape the scores for this league
@@ -182,15 +164,18 @@ class BudaRating(object):
             # assemble the dataframe of team ratings for this league
             data = []
             try:
-                table = leaguescore_soup.find_all('table', attrs={'class':'info'})[1]
+                table = leaguescore_soup.find_all('table',
+                                                  attrs={'class':'info'})[1]
             except IndexError:
-                print("Unable to find a database of scores for league {}".format(leagueid))
+                print("Unable to find a database of scores for league "
+                      "{}".format(leagueid))
                 continue
             rows = table.find_all('tr')
             for row in rows:
                 cols = row.find_all('th')
                 cols = [ele.text.strip() for ele in cols]
-                data.append([ele for ele in cols if ele]) # Get rid of empty values
+                 # Get rid of empty values
+                data.append([ele for ele in cols if ele])
 
             # convert to dataframe and drop irrelevant columns
             dfdata = pd.DataFrame(data)
@@ -217,48 +202,68 @@ class BudaRating(object):
                 for divname in divnames:
                     div_ratings[divname] = 0
 
-            # define base ratings by division (arbitrarily assigned based on my experience)
+            # define base ratings by division (arbitrarily assigned based on my
+            # experience)
             dfdata['div'] = np.zeros(len(dfdata))
             dfdata['divname'] = np.zeros(len(dfdata))
             for i in range(len(divnames)-1):
                 try:
                     divstart = np.where(dfdata['Team'] == divnames[i])[0][0]
                 except IndexError:
-                    print("{} not found, skipping league {}".format(divnames[i], leagueid))
+                    print("{} not found, skipping league {}".format(
+                        divnames[i], leagueid))
                     continue
                 try:
                     divend = np.where(dfdata['Team'] == divnames[i + 1])[0][0]
                 except IndexError:
-                    print("{} not found, skipping league {}".format(divnames[i + 1], leagueid))
+                    print("{} not found, skipping league {}".format(
+                        divnames[i + 1], leagueid))
                     continue
                 try:
-                    dfdata.ix[divstart + 1: divend, 'div'] = div_ratings[divnames[i]]
+                    dfdata.ix[divstart + 1: divend, 'div'] = div_ratings[
+                        divnames[i]]
                     dfdata.ix[divstart + 1: divend, 'divname'] = divnames[i]
                 except KeyError:
-                    print("No base rating for {}, skipping league {}".format(divnames[i], leagueid))
+                    print("No base rating for {}, skipping league {}".format(
+                        divnames[i], leagueid))
                     continue
             try:
                 dfdata.ix[divend + 1:, 'div'] = div_ratings[divnames[-1]]
                 dfdata.ix[divend + 1:, 'divname'] = divnames[-1]
             except KeyError:
-                print("No base rating for {}, skipping league {}".format(divnames[-1], leagueid))
+                print("No base rating for {}, skipping league {}".format(
+                    divnames[-1], leagueid))
                 continue
 
                 # remove the division dividers from the dataframe
             for i in range(len(divnames)):
-                dfdata = dfdata.drop(dfdata.index[dfdata['Team'] == divnames[i]])
+                dfdata = dfdata.drop(
+                    dfdata.index[dfdata['Team'] == divnames[i]])
+
+            # make sure the Team identifier includes (team number) if this is
+            #  a hat league team
+            if league_type == 'Hat':
+                for indx in dfdata.index:
+                    tindx = dfdata.ix[indx, 'Team']
+                    if tindx[-1] != ')':
+                        dfdata.ix[indx, 'Team'] += ' ({})'.format(tindx[5:7])
 
             # generate the average goal differential column
-            dfdata['wins'] = dfdata['Record'].apply(lambda x: int(x.split('-')[0]))
-            dfdata['losses'] = dfdata['Record'].apply(lambda x: int(x.split('-')[1]))
+            dfdata['wins'] = dfdata['Record'].apply(
+                lambda x: int(x.split('-')[0]))
+            dfdata['losses'] = dfdata['Record'].apply(
+                lambda x: int(x.split('-')[1]))
             dfdata['games'] = dfdata['wins'] + dfdata['losses']
-            dfdata['avgplusminus'] = dfdata['Plus/Minus'].astype('float') / dfdata['games']
+            dfdata['avgplusminus'] = dfdata['Plus/Minus'].astype(
+                'float') / dfdata['games']
 
-            # assert that an average goal differential per game of +5 gives +300 rating points.
+            # assert that an average goal differential per game of +5 gives +300
+            # rating points.
             dfdata['adhocrating'] = dfdata['div'] + 60. * dfdata['avgplusminus']
 
             # scrape the list of teams for this league
-            teamsurl = 'http://www.buda.org/hatleagues/rosters.php?section=showTeams&league=' + leagueid
+            teamsurl = 'http://www.buda.org/hatleagues/rosters.php?section=' \
+                       'showTeams&league=' + leagueid
             response = urllib2.urlopen(teamsurl)
             teams_soup = BeautifulSoup(response)
 
@@ -289,14 +294,15 @@ class BudaRating(object):
                     divisionname = dfdata.ix[index, 'divname'].values[0]
                     avgplusminus = dfdata.ix[index, 'avgplusminus'].values[0]
                 except IndexError:
-                    print("Couldn't match {} to scores database, skipping this team.".format(teamname))
+                    print("Couldn't match {} to scores database, skipping "
+                          "this team.".format(teamname))
+                    import pdb; pdb.set_trace()
                     continue
 
                 if teamid in team_rating:
-                    print("Uh oh, duplicate found!")
-                    import pdb; pdb.set_trace()
-                else:
-                    team_rating[teamid] = adhocrating
+                    print("Uh oh, duplicate found in league {}!".format(
+                        leagueid))
+                team_rating[teamid] = adhocrating
 
                 path = '/hatleagues/rosters.php'
                 querydict = {'section': 'showTeamRoster',
@@ -366,11 +372,7 @@ class BudaRating(object):
         f = open(prefix + '_league_teams.p', 'wb')
         pickle.dump(self.league_teams, f)
 
-    def write_allteams(self, prefix):
         self.allteams.to_csv(prefix + '_allteams.csv', index=False)
-
-    def load_allteams(self, prefix):
-        self.allteams = pd.read_csv(prefix + '_allteams.csv')
 
     def load_buda(self, prefix):
         f = open(prefix + '_player_teams.p', 'r')
@@ -381,6 +383,8 @@ class BudaRating(object):
         self.team_rating = pickle.load(f)
         f = open(prefix + '_league_teams.p', 'r')
         self.league_teams = pickle.load(f)
+
+        self.allteams = pd.read_csv(prefix + '_allteams.csv')
 
     def predict_team(self, team_id):
 
@@ -516,3 +520,69 @@ class BudaRating(object):
         return result
 
 
+def scrape_leagues():
+
+    r = urllib2.urlopen('http://www.buda.org/leagues/past-leagues')
+    soup = BeautifulSoup(r, 'html.parser')
+
+    iframe = soup.find_all('iframe')[0]
+    response = urllib2.urlopen(iframe.attrs['src'])
+    iframe_soup = BeautifulSoup(response)
+
+    # scrape the html link to each league
+    leaguelinks = [i.a['href'] for i in iframe_soup.find_all(
+        "td", class_="infobody")]
+
+    # scrape each league name
+    leaguenames = [i.get_text() for i in iframe_soup.find_all("td",
+                                                              class_="infobody")]
+
+    # extract each league id
+    leagueids = [link[link.index('league=') + 7:] for link in leaguelinks]
+
+    # for league_name in leaguenames:
+    #     league_name_list = league_name.split(' ')
+    #     league_season = league_name_list[0]
+    #     league_type = league_name_list[1]
+    #     league_year = league_name_list[-1]
+    #     if league_season == 'Winter':
+    #         league_type = 'Hat'
+
+    leaguedict = pd.DataFrame({'id': leagueids, 'name': leaguenames})
+
+    func = lambda x: x.split(' ')[0]
+    leaguedict['season'] = leaguedict['name'].apply(func)
+    func = lambda x: x.split(' ')[1]
+    leaguedict['type'] = leaguedict['name'].apply(func)
+    func = lambda x: x.split(' ')[-1]
+    leaguedict['year'] = leaguedict['name'].apply(func)
+
+    leaguedict = leaguedict.set_index('id')
+
+    return leaguedict
+
+def define_ratings():
+
+    # define base ratings by division (arbitrarily assigned based on my
+    # experience)
+    div_ratings = {'Summer Club': {'4/3 Div 1': 1800,
+                                   '4/3 Div 2': 1400,
+                                   '4/3 Div 3': 1000,
+                                   '4/3 Div 4': 900,
+                                   '5/2 Div 1': 1700,
+                                   '5/2 Div 2': 1300,
+                                   '5/2 Div 3': 900,
+                                   '5/2 Div 4': 800,
+                                   'Open Div 1': 1400,
+                                   'Open Div 2': 1200},
+                   'Fall Club': {'4/3 Div 1': 1700,
+                                 '4/3 Div 2': 1300,
+                                 '4/3 Div 3': 900,
+                                 '4/3 Div 4': 800,
+                                 '5/2 Div 1': 1700,
+                                 '5/2 Div 2': 1200,
+                                 '5/2 Div 3': 800,
+                                 '5/2 Div 4': 700,
+                                 'Open Div 1': 1300,
+                                 'Open Div 2': 1100}}
+    return div_ratings
