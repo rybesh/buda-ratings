@@ -354,14 +354,6 @@ class BudaRating(object):
         self.league_teams = league_teams
         self.allteams = alldf
 
-    def observed_rating(self):
-
-        base_rating = self.allteams['divrating']
-        normalizer = 60.
-        plusminus = self.allteams['plusminus']
-        observed_ratings = base_rating + normalizer * plusminus
-        self.allteams['observed_ratings'] = observed_ratings
-
     def dump_buda(self, prefix):
         f = open(prefix + '_player_teams.p', 'wb')
         pickle.dump(self.player_teams, f)
@@ -396,13 +388,15 @@ class BudaRating(object):
         """
 
         # instantiate the list of predicted ratings for this team
-        team_ratings = []
+        team_ratings = {}
 
         # get the list of players for this team
         players = self.team_players[team_id]
 
         # for each player, get their rating based on previous performance
         for player in players:
+            if player == '':
+                continue
             teams = self.player_teams[player]
             teams = np.array(teams).astype('int')
 
@@ -414,7 +408,7 @@ class BudaRating(object):
             # very good
             # TODO: use a google search for this player somehow
             if len(previous_teams) == 0:
-                team_ratings.append(800)
+                team_ratings[player] = 800
             else:
                 previous_ratings = [self.team_rating[str(team_key)] for
                                     team_key in previous_teams]
@@ -428,18 +422,19 @@ class BudaRating(object):
                 # might want to refactor this line, since there are many
                 # possible ways to generate a single rating for a given player
                 if previous_ratings[okratings].size > 0:
-                    team_ratings.append(np.mean(previous_ratings[okratings]))
+                    team_ratings[player] = np.mean(previous_ratings[okratings])
                 else:
                     # this player doesn't have any club experience on record,
                     # so default their rating to 800
                     # TODO: define div ratings for hat leagues
-                    team_ratings.append(800)
+                    team_ratings[player] = 800
 
-        return np.mean(team_ratings)
+        return team_ratings
 
     def predicted_rating(self):
 
-        prating = [self.predict_team(str(i)) for i in self.allteams['teamid']]
+        prating = [np.mean(self.predict_team(str(i)).values())
+                           for i in self.allteams['teamid']]
 
         self.allteams['predicted_rating'] = prating
 
@@ -586,3 +581,9 @@ def define_ratings():
                                  'Open Div 1': 1300,
                                  'Open Div 2': 1100}}
     return div_ratings
+
+def observed_rating(base_rating, plusminus):
+
+    normalizer = 60.
+    observed_ratings = base_rating + normalizer * plusminus
+    return observed_ratings
