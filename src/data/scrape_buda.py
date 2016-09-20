@@ -7,6 +7,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pickle
 import urlparse
+from tqdm import tqdm
+from scipy.interpolate import interp1d
+
 
 """
 
@@ -378,6 +381,13 @@ class BudaRating(object):
 
         self.allteams = pd.read_csv(prefix + '_allteams.csv')
 
+        self.self_ratings = pd.read_csv(prefix + '_selfcaptain_ratings.csv')
+
+    def check_league_type(self, team_id):
+
+        return self.allteams.loc[self.allteams['teamid'] == team_id,
+                                 'type'].values[0]
+
     def predict_team(self, team_id):
 
         """
@@ -385,18 +395,80 @@ class BudaRating(object):
         :param team_id: id of the team for which to predict a rating
         :return: list of predicted ratings of players on team_id
 
+        Problem: captain's ratings are few and far between.  Seems that the
+        current BUDA algorithm uses the average of all previous captain's
+        ratings when determining the "captain's rating" for a given league.
+
         """
 
-        # instantiate the list of predicted ratings for this team
-        team_ratings = {}
+        # get the league_id for this team
+        for league_id in self.league_teams:
+            if team_id in self.league_teams[league_id]:
+                player_league = float(league_id)
+                league_type = self.league_meta.loc[league_id, 'type']
+
+        # get the self rating for this league
+        ssr = self.self_ratings
+        ssr = ssr[ssr['league_id'] == player_league]
+        ssr_first = ssr['first_name'].str.lower()
+        ssr_last = ssr['last_name'].str.lower()
+
+        # Assume: if self-rating is NaN, then this person is a total newbie
+        ssr['rank'] = ssr['rank'].replace('nan', 10)
 
         # get the list of players for this team
         players = self.team_players[team_id]
 
+        experience_rating = []
+        draft_rating = []
+        captain_rating = []
+        okplayers = []
+
         # for each player, get their rating based on previous performance
         for player in players:
+
             if player == '':
                 continue
+
+            okplayers.append(player)
+
+            # player name is in the form of "Last, First"
+            player_names = player.split(',')
+            try:
+                player_last = player_names[0].lower()
+                player_first = player_names[1][1:].lower()
+                if player_first == 'chaniel':
+                    player_first = 'cheni'
+            except:
+                import pdb; pdb.set_trace()
+
+            if league_type == 'Hat':
+                this_player = (ssr_first == player_first) & \
+                              (ssr_last == player_last) & \
+                              (ssr['rank_type'] == 1)
+                # print(player, ssr.ix[this_player, 'rank'])
+                if len(ssr.loc[this_player, 'rank'].values) == 0:
+                    # print(player)
+                    draft_rating.append(50)
+                else:
+                    # if len(ssr.loc[this_player, 'rank'].values) > 1:
+                        # print(player, ssr.loc[this_player, 'rank'].values)
+                    draft_rating.append(ssr.loc[this_player, 'rank'].values[0])
+
+                this_and_previous_player = (ssr_first == player_first) & \
+                                           (ssr_last == player_last)
+                captain_rank = ssr.loc[this_and_previous_player, 'captain_rank']
+                if len(captain_rank) > 0:
+                    if captain_rank.values[0] * 0 == 0:
+                        captain_rating.append(captain_rank.values[0])
+                    else:
+                        captain_rating.append(draft_rating[-1])
+                else:
+                    captain_rating.append(draft_rating[-1])
+            else:
+                draft_rating.append(-1)
+                captain_rating.append(-1)
+
             teams = self.player_teams[player]
             teams = np.array(teams).astype('int')
 
@@ -404,39 +476,89 @@ class BudaRating(object):
             previous_teams_index = teams < float(team_id)
             previous_teams = teams[previous_teams_index]
 
-            # if someone has no records in the database, they probably aren't
-            # very good
+            # list of previous _club_ teams for this player
+            previous_club_teams = []
+            for previous_team in previous_teams:
+                if self.check_league_type(previous_team) == 'Club':
+                    previous_club_teams.append(previous_team)
+
+            # if someone has no club team record in the database, they probably
+            # aren't very good, but we have to trust their self-rating
             # TODO: use a google search for this player somehow
-            if len(previous_teams) == 0:
-                team_ratings[player] = 800
+            if len(previous_club_teams) == 0:
+                # use captain's rating if possible
+                if captain_rating[-1] * 0 == 0:
+                    adjust_rating = self_to_experience(captain_rating[-1])
+                else:
+                    adjust_rating = self_to_experience(draft_rating[-1])
+                # if league_type == 'Hat':
+                    # print(player, self_rating[-1], adjust_rating)
+                experience_rating.append(int(adjust_rating))
+                # experience_rating.append(800)
             else:
                 previous_ratings = [self.team_rating[str(team_key)] for
-                                    team_key in previous_teams]
-
-                # if there was no div rating set, then the rating will be
-                # centered on zero and should not be used in previous_ratings
-                previous_ratings = np.array(previous_ratings)
-                thresh = 400
-                okratings = previous_ratings > thresh
+                                    team_key in previous_club_teams]
 
                 # might want to refactor this line, since there are many
                 # possible ways to generate a single rating for a given player
-                if previous_ratings[okratings].size > 0:
-                    team_ratings[player] = np.mean(previous_ratings[okratings])
-                else:
-                    # this player doesn't have any club experience on record,
-                    # so default their rating to 800
-                    # TODO: define div ratings for hat leagues
-                    team_ratings[player] = 800
+                experience_rating.append(np.mean(previous_ratings))
 
-        return team_ratings
+        # compute self_rating from draft_rating and captain's rating
+        self_rating = 2 * np.array(draft_rating) - np.array(captain_rating)
+
+        df_rating = pd.DataFrame({
+            'name': okplayers,
+            'draft_rating': draft_rating,
+            'captain_rating': captain_rating,
+            'self_rating': self_rating,
+            'experience_rating': experience_rating})
+        return df_rating
 
     def predicted_rating(self):
 
-        prating = [np.mean(self.predict_team(str(i)).values())
-                           for i in self.allteams['teamid']]
+        self_allteams = []
+        captain_allteams = []
+        draft_allteams = []
+        experience_allteams = []
+        for i in tqdm(self.allteams.index):
+            team_id = self.allteams.loc[i, 'teamid']
+            league_year = self.allteams.loc[i, 'year']
+            if league_year < 2010:
+                self_allteams.append(-1)
+                captain_allteams.append(-1)
+                draft_allteams.append(-1)
+                experience_allteams.append(-1)
+                continue
+            dfrating = self.predict_team(str(team_id))
+            self_allteams.append(dfrating['self_rating'].mean())
+            captain_allteams.append(dfrating['captain_rating'].mean())
+            draft_allteams.append(dfrating['draft_rating'].mean())
+            experience_allteams.append(dfrating['experience_rating'].mean())
 
-        self.allteams['predicted_rating'] = prating
+        self.allteams['self_rating'] = self_allteams
+        self.allteams['captain_rating'] = captain_allteams
+        self.allteams['draft_rating'] = draft_allteams
+        self.allteams['experience_rating'] = experience_allteams
+
+    def validate_rating(self):
+
+        """
+        I have captain's ratings and self ratings for spring hat league 2011 JP
+        Mixed (4/3).  Can use those ratings to validate my method for estimating
+        captain's ratings and self ratings.
+        """
+
+        ok = (self.allteams['divname'] == 'JP Mixed (4/3)') & \
+             (self.allteams['season'] == 'Spring') & \
+             (self.allteams['type'] == 'Hat') & \
+             (self.allteams['year'] == 2011)
+        sph2011 = self.allteams[ok]
+        dfratings = []
+        for i in tqdm(sph2011.index):
+            team_id = sph2011.loc[i, 'teamid']
+            dfratings.append(self.predict_team(str(team_id)))
+        dfratings = pd.concat(dfratings)
+        return dfratings
 
     def team_detail(self, team_id):
 
@@ -467,7 +589,7 @@ class BudaRating(object):
 
             # if someone has no records in the database, they probably aren't
             # very good
-            # TODO: use a google search for this player somehow
+            # TODO: use google search results?
             if len(previous_teams) == 0:
                 avgclubrating.append(800)
                 avghatrating.append(0)
@@ -513,6 +635,10 @@ class BudaRating(object):
                                'nhat': nhatseasons})
 
         return result
+
+    def player_detail(self, player_name):
+
+        pass
 
 
 def scrape_leagues():
@@ -582,8 +708,29 @@ def define_ratings():
                                  'Open Div 2': 1100}}
     return div_ratings
 
+
 def observed_rating(base_rating, plusminus):
 
     normalizer = 60.
     observed_ratings = base_rating + normalizer * plusminus
     return observed_ratings
+
+
+def self_to_experience(self_rating):
+    base_self = [-1] + range(0, 110, 10)
+    base_experience = 100 * np.array([5, 5, 6, 8, 9, 10, 12, 14, 16, 18, 20,
+                                      20])
+    func = interp1d(base_self, base_experience)
+    experience_rating = func(self_rating)
+
+    return experience_rating
+
+
+def experience_to_self(experience_rating):
+    base_self = [-1] + range(0, 110, 10)
+    base_experience = 100 * np.array([5, 5, 6, 8, 9, 10, 12, 14, 16, 18, 20,
+                                      20])
+    func = interp1d(base_experience, base_self)
+    self_rating = func(experience_rating)
+
+    return self_rating
