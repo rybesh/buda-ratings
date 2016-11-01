@@ -1,3 +1,4 @@
 abstract.tex
 untitled.tex
 section_Performance_of_Self_Assessment__.tex
+figures/PlusMinusDistribution_WinBy3Probability/PlusMinusDistribution_WinBy3Probability.png
