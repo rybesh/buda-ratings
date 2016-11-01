@@ -1,4 +1,3 @@
 abstract.tex
 untitled.tex
 section_Performance_of_Existing_Rating__.tex
-figures/PlusMinusDistribution_WinBy3Probability/PlusMinusDistribution_WinBy3Probability.png
