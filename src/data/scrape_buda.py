@@ -424,8 +424,13 @@ class BudaRating(object):
         captain_rating = []
         okplayers = []
 
+        n_captain = 0
+        n_experience = 0
+        n_captainexperience = 0
+
         # for each player, get their rating based on previous performance
         for player in players:
+            captain_or_experience = False
 
             if player == '':
                 continue
@@ -461,6 +466,8 @@ class BudaRating(object):
                 if len(captain_rank) > 0:
                     if captain_rank.values[0] * 0 == 0:
                         captain_rating.append(captain_rank.values[0])
+                        n_captain += 1
+                        captain_or_experience = True
                     else:
                         captain_rating.append(draft_rating[-1])
                 else:
@@ -502,6 +509,11 @@ class BudaRating(object):
                 # might want to refactor this line, since there are many
                 # possible ways to generate a single rating for a given player
                 experience_rating.append(np.mean(previous_ratings))
+                captain_or_experience = True
+                n_experience += 1
+
+            if captain_or_experience:
+                n_captainexperience += 1
 
         # compute self_rating from draft_rating and captain's rating
         self_rating = 2 * np.array(draft_rating) - np.array(captain_rating)
@@ -512,7 +524,7 @@ class BudaRating(object):
             'captain_rating': captain_rating,
             'self_rating': self_rating,
             'experience_rating': experience_rating})
-        return df_rating
+        return df_rating, n_captain, n_experience, n_captainexperience
 
     def predicted_rating(self):
 
@@ -520,6 +532,9 @@ class BudaRating(object):
         captain_allteams = []
         draft_allteams = []
         experience_allteams = []
+        n_exp_allteams = []
+        n_cap_allteams = []
+        n_capexp_allteams = []
         for i in tqdm(self.allteams.index):
             team_id = self.allteams.loc[i, 'teamid']
             league_year = self.allteams.loc[i, 'year']
@@ -528,17 +543,26 @@ class BudaRating(object):
                 captain_allteams.append(-1)
                 draft_allteams.append(-1)
                 experience_allteams.append(-1)
+                n_exp_allteams.append(-1)
+                n_cap_allteams.append(-1)
+                n_capexp_allteams.append(-1)
                 continue
-            dfrating = self.predict_team(str(team_id))
+            dfrating, n_cap, n_exp, n_capexp = self.predict_team(str(team_id))
             self_allteams.append(dfrating['self_rating'].mean())
             captain_allteams.append(dfrating['captain_rating'].mean())
             draft_allteams.append(dfrating['draft_rating'].mean())
             experience_allteams.append(dfrating['experience_rating'].mean())
+            n_cap_allteams.append(n_cap / 16.)
+            n_exp_allteams.append(n_exp / 16.)
+            n_capexp_allteams.append(n_capexp / 16.)
 
         self.allteams['self_rating'] = self_allteams
         self.allteams['captain_rating'] = captain_allteams
         self.allteams['draft_rating'] = draft_allteams
         self.allteams['experience_rating'] = experience_allteams
+        self.allteams['n_exp_rating'] = n_exp_allteams
+        self.allteams['n_cap_rating'] = n_cap_allteams
+        self.allteams['n_capexp_rating'] = n_capexp_allteams
 
     def validate_rating(self):
 
