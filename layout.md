@@ -1,6 +1,6 @@
 abstract.tex
 Introduction.tex
-section_Performance_of_Existing_Rating__.tex
+Performance_of_Existing_Rating_System.tex
 figures/PlusMinusDistribution_WinProbability/PlusMinusDistribution_WinProbability.png
 section_Self_Assessment_Ratings_and__.tex
 figures/SelfCaptainBUDARatingComparison/SelfCaptainBUDARatingComparison.png
