@@ -2,7 +2,7 @@ abstract.tex
 Introduction.tex
 Performance_of_Existing_Rating_System.tex
 figures/PlusMinusDistribution_WinProbability/PlusMinusDistribution_WinProbability.png
-section_Self_Assessment_Ratings_and__.tex
+Self_Assessment_Ratings_and_Captain Ratings.tex
 figures/SelfCaptainBUDARatingComparison/SelfCaptainBUDARatingComparison.png
 section_A_Data_driven_Rating__.tex
 figures/ClubRatingComparison/ClubRatingComparison.png
