@@ -7,4 +7,4 @@ figures/SelfCaptainBUDARatingComparison/SelfCaptainBUDARatingComparison.png
 A_Data_driven_Rating_System.tex
 figures/ClubRatingComparison/ClubRatingComparison.png
 Recommendations_for_League_Commissioners_.tex
-section_Summary_and_Future_Work__.tex
+Summary_and_Future_Work.tex
