@@ -6,6 +6,7 @@ Self_Assessment_Ratings_and_Captain Ratings.tex
 figures/SelfCaptainBUDARatingComparison/SelfCaptainBUDARatingComparison.png
 figures/SelfRatingComparison/SelfRatingComparison.png
 figures/CaptainRatingComparison/CaptainRatingComparison.png
+figures/BUDARatingComparison/BUDARatingComparison.png
 A_Data_driven_Rating_System.tex
 figures/ClubRatingComparison/ClubRatingComparison.png
 Recommendations_for_League_Commissioners_.tex
