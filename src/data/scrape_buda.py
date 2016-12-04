@@ -515,6 +515,9 @@ class BudaRating(object):
             if captain_or_experience:
                 n_captainexperience += 1
 
+            if player == 'Ho, Vivian' and league_type == 'Hat':
+                import pdb; pdb.set_trace()
+
         # compute self_rating from draft_rating and captain's rating
         self_rating = 2 * np.array(draft_rating) - np.array(captain_rating)
 
@@ -532,6 +535,7 @@ class BudaRating(object):
         captain_allteams = []
         draft_allteams = []
         experience_allteams = []
+        ensemble_allteams = []
         n_exp_allteams = []
         n_cap_allteams = []
         n_capexp_allteams = []
@@ -543,6 +547,7 @@ class BudaRating(object):
                 captain_allteams.append(-1)
                 draft_allteams.append(-1)
                 experience_allteams.append(-1)
+                ensemble_allteams.append(-1)
                 n_exp_allteams.append(-1)
                 n_cap_allteams.append(-1)
                 n_capexp_allteams.append(-1)
@@ -552,14 +557,23 @@ class BudaRating(object):
             captain_allteams.append(dfrating['captain_rating'].mean())
             draft_allteams.append(dfrating['draft_rating'].mean())
             experience_allteams.append(dfrating['experience_rating'].mean())
+            experience_converted = experience_to_self(
+                dfrating['experience_rating'])
+            # ensemble_rating = 0.5 * (experience_converted +
+            #                          dfrating['captain_rating'])
+            ensemble_rating = experience_converted
+            ensemble_allteams.append(ensemble_rating.mean())
             n_cap_allteams.append(n_cap / 16.)
             n_exp_allteams.append(n_exp / 16.)
             n_capexp_allteams.append(n_capexp / 16.)
+            if np.mean(ensemble_allteams)*0 != 0:
+                import pdb; pdb.set_trace()
 
         self.allteams['self_rating'] = self_allteams
         self.allteams['captain_rating'] = captain_allteams
         self.allteams['draft_rating'] = draft_allteams
         self.allteams['experience_rating'] = experience_allteams
+        self.allteams['ensemble_rating'] = ensemble_allteams
         self.allteams['n_exp_rating'] = n_exp_allteams
         self.allteams['n_cap_rating'] = n_cap_allteams
         self.allteams['n_capexp_rating'] = n_capexp_allteams
@@ -751,9 +765,9 @@ def self_to_experience(self_rating):
 
 
 def experience_to_self(experience_rating):
-    base_self = [-1] + range(0, 110, 10)
-    base_experience = 100 * np.array([5, 5, 6, 8, 9, 10, 12, 14, 16, 18, 20,
-                                      20])
+    base_self = [0, 0] + range(0, 110, 10) + [100, 100]
+    base_experience = 100 * np.array([-5, 5, 5, 6, 8, 9, 10, 12, 14, 16, 18, 20,
+                                      20, 21, 29])
     func = interp1d(base_experience, base_self)
     self_rating = func(experience_rating)
 

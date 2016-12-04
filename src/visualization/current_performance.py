@@ -118,7 +118,7 @@ if __name__ == '__main__':
     sns.distplot(sph['plusminus'], kde=False, bins=range(-10,11),
                  label='Observed', ax=ax)
     ax.set_ylabel('Number of Teams')
-    ax.set_xlabel('Average Plus/Minus per Game')
+    ax.set_xlabel('Points Per Game Differential')
     ax.legend()
 
     ax = axes[1]
@@ -145,3 +145,4 @@ if __name__ == '__main__':
     plt.tight_layout(w_pad=2)
     plt.savefig(os.path.join(figures_dir,
                              'PlusMinusDistribution_WinProbability'))
+    import pdb; pdb.set_trace()
