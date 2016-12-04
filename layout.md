@@ -1,0 +1,12 @@
+abstract.tex
+Introduction.tex
+Performance_of_Existing_Rating_System.tex
+figures/PlusMinusDistribution_WinProbability/PlusMinusDistribution_WinProbability.png
+Self_Assessment_Ratings_and_Captain Ratings.tex
+figures/SelfRatingComparison/SelfRatingComparison.png
+figures/CaptainRatingComparison/CaptainRatingComparison.png
+figures/BUDARatingComparison/BUDARatingComparison.png
+A_Data_driven_Rating_System.tex
+figures/ClubRatingComparison/ClubRatingComparison.png
+Recommendations_for_League_Commissioners_.tex
+Summary_and_Future_Work.tex
