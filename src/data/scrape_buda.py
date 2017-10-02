@@ -3,8 +3,7 @@ import urllib2
 import urllib
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+import os
 import pickle
 import urlparse
 from tqdm import tqdm
@@ -40,9 +39,11 @@ experience rating
 
 """
 
+
 class BudaRating(object):
 
     def __init__(self):
+        self.base_dir = '/Users/rbussman/Projects/BUDA/buda-ratings'
         self.league_meta = scrape_leagues()
         self.div_ratings = define_ratings()
 
@@ -122,7 +123,6 @@ class BudaRating(object):
         tobescraped = totalleagues - alreadyscraped
         print("Planning to scrape {} leagues out of a total of {} leagues in "
               "the BUDA database.".format(tobescraped, totalleagues))
-        # import pdb; pdb.set_trace()
 
         # loop over all the leagues in league_meta
         for leagueid in self.league_meta.index:
@@ -148,15 +148,24 @@ class BudaRating(object):
                         league_name, leagueid))
                     continue
 
+            dfname = 'scores_{}.csv'.format(leagueid)
+            dfpath = os.path.join(
+                self.base_dir, 'data', 'raw', 'game_scores', dfname)
+            if os.path.exists(dfpath):
+                print("Already scraped {}".format(league_name))
+                continue
+
+            print("Scraping {}".format(league_name))
+
             # scrape the scores for this league
             scheme = 'http'
-            netloc = 'www.buda.org'
+            netloc = 'old.buda.org'
             path = '/hatleagues/scores.php'
             params = ''
             querydict = {'section': 'showLeagueSchedule',
                          'league': '{}'.format(leagueid),
                          'byDivision': '1',
-                         'showGames': '0'}
+                         'showGames': '1'}
             query = urllib.urlencode(querydict)
             fragment = ''
             parts = (scheme, netloc, path, params, query, fragment)
@@ -176,9 +185,15 @@ class BudaRating(object):
             rows = table.find_all('tr')
             for row in rows:
                 cols = row.find_all('th')
-                cols = [ele.text.strip() for ele in cols]
+                th_cols = [ele.text.strip() for ele in cols]
+                if th_cols != []:
+                    data.append(th_cols)
+                cols = row.find_all('td')
+                td_cols = [ele.text.strip() for ele in cols]
+                if td_cols != []:
+                    data.append(td_cols)
                  # Get rid of empty values
-                data.append([ele for ele in cols if ele])
+                # data.append([ele for ele in cols if ele])
 
             # convert to dataframe and drop irrelevant columns
             dfdata = pd.DataFrame(data)
@@ -243,29 +258,59 @@ class BudaRating(object):
                 dfdata = dfdata.drop(
                     dfdata.index[dfdata['Team'] == divnames[i]])
 
+            teamindex = dfdata['Team'] != ''
+            teamindices = dfdata.index[teamindex]
+            for s_index, e_index in zip(teamindices[:-1], teamindices[1:]):
+                start_index = s_index + 1
+                end_index = e_index - 1
+                team_name = dfdata.loc[s_index, 'Team']
+                dfdata.loc[start_index:end_index, 'Team'] = team_name
+
+            s_index = e_index
+            start_index = s_index + 1
+            end_index = dfdata.index[-1]
+            team_name = dfdata.loc[s_index, 'Team']
+            dfdata.loc[start_index:end_index, 'Team'] = team_name
+
+            dfdata = dfdata.drop(teamindices)
+
+            dfdata = dfdata.rename(columns={
+                'Team': 'Team A',
+                'Record': 'Team B'
+            })
+
+            def reformat(team_string):
+                if team_string != '':
+                    if team_string[-1] != ')':
+                        team_string += ' ({})'.format(team_string[5:7])
+                return team_string
+
             # make sure the Team identifier includes (team number) if this is
             #  a hat league team
             if league_type == 'Hat':
                 for indx in dfdata.index:
-                    tindx = dfdata.ix[indx, 'Team']
-                    if tindx[-1] != ')':
-                        dfdata.ix[indx, 'Team'] += ' ({})'.format(tindx[5:7])
+                    dfdata['Team A'] = dfdata['Team A'].apply(reformat)
+                    # tindx = dfdata.loc[indx, 'Team A']
+                    # if tindx[-1] != ')':
+                    #     dfdata.loc[indx, 'Team A'] += ' ({})'.format(tindx[5:7])
+                    # tindx = dfdata.ix[indx, 'Team B']
+                    # if tindx[-1] != ')':
+                    #     dfdata.ix[indx, 'Team B'] += ' ({})'.format(tindx[5:7])
 
             # generate the average goal differential column
-            dfdata['wins'] = dfdata['Record'].apply(
+            dfdata['Score A'] = dfdata['Plus/Minus'].apply(
                 lambda x: int(x.split('-')[0]))
-            dfdata['losses'] = dfdata['Record'].apply(
+            dfdata['Score B'] = dfdata['Plus/Minus'].apply(
                 lambda x: int(x.split('-')[1]))
-            dfdata['games'] = dfdata['wins'] + dfdata['losses']
-            dfdata['avgplusminus'] = dfdata['Plus/Minus'].astype(
-                'float') / dfdata['games']
+
+            dfdata.head(10)
 
             # assert that an average goal differential per game of +5 gives +300
             # rating points.
-            dfdata['adhocrating'] = dfdata['div'] + 60. * dfdata['avgplusminus']
+            # dfdata['adhocrating'] = dfdata['div'] + 60. * dfdata['avgplusminus']
 
             # scrape the list of teams for this league
-            teamsurl = 'http://www.buda.org/hatleagues/rosters.php?section=' \
+            teamsurl = 'http://old.buda.org/hatleagues/rosters.php?section=' \
                        'showTeams&league=' + leagueid
             response = urllib2.urlopen(teamsurl)
             teams_soup = BeautifulSoup(response)
@@ -291,11 +336,11 @@ class BudaRating(object):
             # link the team rating to each player on that team
             for teamid, teamname in zip(teamids, teamnames):
                 try:
-                    index = dfdata['Team'] == teamname.strip(' ')
-                    adhocrating = dfdata.ix[index, 'adhocrating'].values[0]
+                    index = dfdata['Team A'] == teamname.strip(' ')
+                    # adhocrating = dfdata.ix[index, 'adhocrating'].values[0]
                     divrating = dfdata.ix[index, 'div'].values[0]
                     divisionname = dfdata.ix[index, 'divname'].values[0]
-                    avgplusminus = dfdata.ix[index, 'avgplusminus'].values[0]
+                    # avgplusminus = dfdata.ix[index, 'avgplusminus'].values[0]
                 except IndexError:
                     print("Couldn't match {} to scores database, skipping "
                           "this team.".format(teamname))
@@ -305,7 +350,8 @@ class BudaRating(object):
                 if teamid in team_rating:
                     print("Uh oh, duplicate found in league {}!".format(
                         leagueid))
-                team_rating[teamid] = adhocrating
+                # team_rating[teamid] = adhocrating
+                team_rating[teamid] = None
 
                 path = '/hatleagues/rosters.php'
                 querydict = {'section': 'showTeamRoster',
@@ -338,7 +384,14 @@ class BudaRating(object):
                 allyears.append(league_year)
                 alldivnames.append(divisionname)
                 alldivratings.append(divrating)
-                allplusminus.append(avgplusminus)
+                # allplusminus.append(avgplusminus)
+
+            dfdata = dfdata.drop(['index', 'Plus/Minus', 'div'], axis=1)
+            file_directory = os.path.join(self.base_dir, 'data', 'raw',
+                                          'game_scores')
+            file_name = "scores_{}.csv".format(leagueid)
+            file_path = os.path.join(file_directory, file_name)
+            dfdata.to_csv(file_path, index=False)
 
             print("Finished successfully with league {}".format(leagueid))
 
@@ -681,7 +734,7 @@ class BudaRating(object):
 
 def scrape_leagues():
 
-    r = urllib2.urlopen('http://www.buda.org/leagues/past-leagues')
+    r = urllib2.urlopen('http://old.buda.org/leagues/past-leagues')
     soup = BeautifulSoup(r, 'html.parser')
 
     iframe = soup.find_all('iframe')[0]
