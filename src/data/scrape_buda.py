@@ -43,7 +43,7 @@ experience rating
 class BudaRating(object):
 
     def __init__(self):
-        self.base_dir = '/Users/rbussman/Projects/BUDA/buda-ratings'
+        self.base_dir = '/Users/sbussmann/Development/buda/buda-ratings'
         self.league_meta = scrape_leagues()
         self.div_ratings = define_ratings()
 
@@ -171,7 +171,7 @@ class BudaRating(object):
             parts = (scheme, netloc, path, params, query, fragment)
             leaguescoreurl = urlparse.urlunparse(parts)
             response = urllib2.urlopen(leaguescoreurl)
-            leaguescore_soup = BeautifulSoup(response)
+            leaguescore_soup = BeautifulSoup(response, "html5lib")
 
             # assemble the dataframe of team ratings for this league
             data = []
@@ -313,7 +313,7 @@ class BudaRating(object):
             teamsurl = 'http://old.buda.org/hatleagues/rosters.php?section=' \
                        'showTeams&league=' + leagueid
             response = urllib2.urlopen(teamsurl)
-            teams_soup = BeautifulSoup(response)
+            teams_soup = BeautifulSoup(response, "html5lib")
 
             # generate list of team ids and names for this league
             tdlist = teams_soup.find_all('td', class_='infobody')
@@ -360,7 +360,7 @@ class BudaRating(object):
                 parts = (scheme, netloc, path, params, query, fragment)
                 teamurl = urlparse.urlunparse(parts)
                 response = urllib2.urlopen(teamurl)
-                roster_soup = BeautifulSoup(response)
+                roster_soup = BeautifulSoup(response, "html5lib")
 
                 # list of players on this team
                 players = [td.get_text() for td in
@@ -735,11 +735,11 @@ class BudaRating(object):
 def scrape_leagues():
 
     r = urllib2.urlopen('http://old.buda.org/leagues/past-leagues')
-    soup = BeautifulSoup(r, 'html.parser')
+    soup = BeautifulSoup(r, "html5lib")
 
     iframe = soup.find_all('iframe')[0]
     response = urllib2.urlopen(iframe.attrs['src'])
-    iframe_soup = BeautifulSoup(response)
+    iframe_soup = BeautifulSoup(response, "html5lib")
 
     # scrape the html link to each league
     leaguelinks = [i.a['href'] for i in iframe_soup.find_all(
